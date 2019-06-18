@@ -3,6 +3,7 @@ from keras.models import *
 from keras.layers import *
 import sys
 import os
+from PIL import Image
 
 from flask import jsonify
 from flask import Flask, flash, request, redirect, url_for, render_template
@@ -38,7 +39,7 @@ def predict(img):
     x = Dropout(0.25)(x)
     x = Dense(n_class, init='he_normal', activation='softmax')(x)
     base_model = Model(input=input_tensor, output=x)
-    base_model.load_weights('model.h5')
+    base_model.load_weights(os.path.join(app.root_path, 'model.h5'))
 
     X = np.zeros((1, width, height, 3), dtype=np.uint8)
     X[0] = np.array(img).transpose(1, 0, 2)
@@ -51,24 +52,48 @@ def predict(img):
 
 @app.route('/predict', methods=['GET', 'POST'])
 def upload_file():
-    os.chdir(os.path.dirname(__file__))
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
             return jsonify({"error": "file must in files"})
         file = request.files['file']
-        file.save(os.path.join("static/", file.filename))
+        img_path = os.path.join(app.static_folder, file.filename)
+        file.save(img_path)
         from PIL import Image
-        img = Image.open(os.path.join("static/", file.filename))
+        img = Image.open(img_path)
         return predict(img)
+
+
+@app.route('/demo', methods=['GET', 'POST'])
+def demo(name=None):
+    if request.method == "POST":
+        from captcha.image import ImageCaptcha
+        import string
+        characters = string.digits + string.ascii_uppercase
+        width, height, n_len, n_class = 170, 80, 4, len(characters) + 1
+        user_inputs = request.get_json()
+        if user_inputs.get("origin_string", None):
+            image_name = request.get_json()["origin_string"]
+            ImageCaptcha(width=width, height=height)
+            img = ImageCaptcha(width=width, height=height).generate_image(image_name)
+            img_file = "{}.png".format(image_name)
+            img.save(os.path.join(app.static_folder, img_file))
+            return jsonify({
+                "url": "/static/{}".format(img_file)
+            })
+        if user_inputs.get("filename", None):
+            filename = user_inputs.get("filename", None)
+            img_path = os.path.join(app.static_folder, filename)
+            img = Image.open(img_path)
+            return predict(img)
+
+    return render_template('demo.html', name=name)
 
 
 @app.route('/')
 def hello_world(name=None):
-    os.chdir(os.path.dirname(__file__))
-
     return render_template('index.html', name=name)
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host="0.0.0.0")

@@ -15,10 +15,9 @@
     <br>
     <input name="img" id="img" type="file" />
     <button id="upload"  onclick="jqSubmit()">Start upload</button>
-
+    <div ><img id="img_src" src="" alt=""></div>
     <div>预测结果:</div>
     <div id="error_msg" style="color: red"></div>
-    <div id="origin_s3_url"></div>
     <br>
 
 
@@ -69,7 +68,9 @@
             processData: false,
             contentType: false,
             success:function (results) {
+                  $("#img_src").attr("src","/static/"+file_obj.name) ;
                   $("#error_msg").text(results);
+
             }
         })
     }
